@@ -52,8 +52,6 @@ def sort(entry):
             create_folder(start_path, directory_path)
             move_file(full_path, start_path, directory_path)
 
-    return
-
 
 if __name__ == '__main__':
     pool.map(sort, os.walk(start_path))
