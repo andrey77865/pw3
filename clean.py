@@ -1,201 +1,60 @@
 from pathlib import Path
 import os
 import shutil
-from sys import argv
+from multiprocessing.dummy import Pool
+
+start_path = input("Input folder: ")
+
+pool = Pool(3)
+
+listOfDirectories = {
+    "Picture": [".jpeg", ".jpg", ".gif", ".png"],
+    "Video": [".wmv", ".mov", ".mp4", ".mpg", ".mpeg", ".mkv"],
+    "Zip": [".iso", ".tar", ".gz", ".rz", ".7z", ".dmg", ".rar", ".zip"],
+    "Music": [".mp3", ".msv", ".wav", ".wma"],
+    "PDF": [".pdf"],
+    "Documents": [".doc", ".docx", ".txt"]
+}
+
+item_Format_Dictionary = {
+    file_extension: directory for directory,
+    item_format_stored in listOfDirectories.items() for file_extension in item_format_stored
+}
 
 
-try:
-    argv_path = Path(argv[1])
-except IndexError:
-    print("Please enter the path to the folder!")
-    exit()
-else:
-    argv_path = Path(argv[1])
-
-if not Path(argv_path).exists():
-    print("Path doesn't exist, please try again!")
-    exit()
+def create_folder(start_path, name):
+    directory_path = Path(name)
+    try:
+        os.makedirs(start_path / directory_path, exist_ok=True)
+    except:
+        print(f"Directory '{directory_path}' already exists")
 
 
-images, videos, documents, music, archives, unknown_files = [], [], [], [], [], []
-known_extensions, unknown_extensions = set(), set()
-img_ext = (".jpeg", ".jpg", ".png", "svg")
-vid_ext = (".avi", ".mp4", ".mov", ".mkv")
-doc_ext = (".doc", ".docx", ".txt", ".pdf", ".pptx")
-music_ext = (".mp3", ".ogg", ".wav", ".amr")
-arch_ext = (".zip", ".gz", ".tar")
-ignore_folders = ("archives", "video", "audio", "documents", "images")
+def move_file(fullpath, start_path, directory_path):
+    try:
+        shutil.move(fullpath, start_path / directory_path)
+    except:
+        print(f"File '{fullpath}' already sorted")
 
 
-def normalize(filename):
-    """ 
-    Translate cyrylic symbols to latin and replace symbols to '_' if symbols are not digit/alpha
-    Returns string
-    """
+def sort(entry):
 
-    translate_dict = {
-        'а': 'a',
-        'б': 'b',
-        'в': 'v',
-        'г': 'g',
-        'д': 'd',
-        'е': 'e',
-        'ё': 'yo',
-        'ж': 'zh',
-        'з': 'z',
-        'и': 'i',
-        'й': 'y',
-        'к': 'k',
-        'л': 'l',
-        'м': 'm',
-        'н': 'n',
-        'о': 'o',
-        'п': 'p',
-        'р': 'r',
-        'с': 's',
-        'т': 't',
-        'у': 'u',
-        'ф': 'f',
-        'х': 'h',
-        'ц': 'ts',
-        'ч': 'ch',
-        'ш': 'sh',
-        'щ': 'shch',
-        'ъ': 'y',
-        'ы': 'y',
-        'ь': "'",
-        'э': 'e',
-        'ю': 'yu',
-        'я': 'ya',
-        'А': 'A',
-        'Б': 'B',
-        'В': 'V',
-        'Г': 'G',
-        'Д': 'D',
-        'Е': 'E',
-        'Ё': 'Yo',
-        'Ж': 'Zh',
-        'З': 'Z',
-        'И': 'I',
-        'Й': 'Y',
-        'К': 'K',
-        'Л': 'L',
-        'М': 'M',
-        'Н': 'N',
-        'О': 'O',
-        'П': 'P',
-        'Р': 'R',
-        'С': 'S',
-        'Т': 'T',
-        'У': 'U',
-        'Ф': 'F',
-        'Х': 'H',
-        'Ц': 'Ts',
-        'Ч': 'Ch',
-        'Ш': 'Sh',
-        'Щ': 'Shch',
-        'Ъ': 'Y',
-        'Ы': 'Y',
-        'Ь': "'",
-        'Э': 'E',
-        'Ю': 'Yu',
-        'Я': 'Ya',
-    }
-    latin_alpha = "abcdefghijklmnopqrstuvwxyz"
-    new_string = ""
-    for s in filename:
-        if s in translate_dict:
-            new_string += translate_dict[s]
-        elif s.lower() not in latin_alpha and not s.isnumeric():
-            new_string += "_"
+    for filename in entry[2]:
+        full_path: Path = Path(entry[0]) / Path(filename)
+        name, file_extension = os.path.splitext(full_path)
+
+        if file_extension in item_Format_Dictionary:
+            directory_path = Path(item_Format_Dictionary[file_extension])
+            create_folder(start_path, directory_path)
+            move_file(full_path, start_path, directory_path)
         else:
-            new_string += s
-
-    return new_string
-
-
-def del_empty_dirs(trg_path=argv_path):
-    for dirpath, _, _ in os.walk(trg_path, topdown=False):
-        if dirpath == trg_path:
-            break
-        try:
-            os.rmdir(dirpath)
-        except OSError:
-            pass
-
-
-def sorter(path=argv_path):
-    """
-    Recursively walks in the target folder, moves files to appropriate folders
-
-        Parameter:
-            path (str): Path to target folder
-
-    """
-
-    target_dir = Path(path)
-    for file in target_dir.iterdir():
-        # Check is file
-        if file.is_file():
-            # If image
-            if file.suffix.lower() in img_ext:
-                images.append(file.name)
-                known_extensions.add(file.suffix)
-                category_dir = argv_path / "images"
-            # If video
-            elif file.suffix.lower() in vid_ext:
-                videos.append(file.name)
-                known_extensions.add(file.suffix)
-                category_dir = argv_path / "videos"
-            # If document
-            elif file.suffix.lower() in doc_ext:
-                documents.append(file.name)
-                known_extensions.add(file.suffix)
-                category_dir = argv_path / "documents"
-            # If music
-            elif file.suffix.lower() in music_ext:
-                music.append(file.name)
-                known_extensions.add(file.suffix)
-                category_dir = argv_path / "music"
-            # If archive
-            elif file.suffix.lower() in arch_ext:
-                archives.append(file.name)
-                known_extensions.add(file.suffix)
-                category_dir = argv_path / "archives"
-                shutil.unpack_archive(file, category_dir/file.stem)
-            # If unknown
-            else:
-                unknown_files.append(file.name)
-                unknown_extensions.add(file.suffix)
-                category_dir = argv_path / "unknown"
-
-            category_dir.mkdir(exist_ok=True)
-            if category_dir.stem == "unknown":
-                filename = file.stem  # No normalize if file is unknown
-            else:
-                # Normalize filename for known file
-                filename = normalize(file.stem)
-            file_ext = file.suffix
-            try:
-                # Move file to appropriate folder
-                file.rename(category_dir.joinpath(filename+file_ext))
-            except FileNotFoundError:
-                pass
-        # Check is directory
-        elif file.is_dir():
-            if file in ignore_folders:
-                continue
-            else:
-                sorter(target_dir / file)
-
-    del_empty_dirs()
+            directory_path = Path("Unknown")
+            create_folder(start_path, directory_path)
+            move_file(full_path, start_path, directory_path)
 
     return
 
 
-sorter()
-print(
-    f"Images: {images}\nVideos: {videos}\nDocuments: {documents}\n"
-    f"Music: {music}\nArchives: {archives}\nUnknown files: {unknown_files}\n"
-    f"Known extensions: {known_extensions}\nUnknown extensions: {unknown_extensions}")
-print("\nSorted finished!")
+if __name__ == '__main__':
+    pool.map(sort, os.walk(start_path))
+    print('Finished')
